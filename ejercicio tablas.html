@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DanteTab - Tablas de Multiplicar</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Animate.css -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"
+  />
+
+  <!-- Google Fonts: Raleway -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Raleway:wght@500;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    body {
+      font-family: 'Raleway', sans-serif;
+    }
+
+    .mario {
+      width: 50px;
+      transition: left 0.5s ease;
+    }
+
+    .flag {
+      width: 40px;
+      position: absolute;
+      bottom: 0;
+      right: 10px;
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-r from-green-900 via-green-800 to-green-700 min-h-screen flex items-center justify-center p-4">
+  <div class="backdrop-blur-md bg-white/10 rounded-2xl p-8 max-w-xl w-full shadow-2xl text-white text-center relative">
+    <h1 class="text-3xl md:text-4xl font-bold mb-4 animate__animated animate__bounce">
+      🎮 DanteTab: ¡Multiplica con Mario!
+    </h1>
+    <p class="mb-4">Selecciona dificultad, responde correctamente y ayuda a Mario a llegar a la meta 🏁.</p>
+
+    <!-- Puntaje -->
+    <div class="text-yellow-300 font-bold text-lg mb-4">Puntos: <span id="score">0</span></div>
+
+    <!-- Barra de progreso -->
+    <div class="w-full h-4 bg-white/20 rounded-full mb-6 overflow-hidden">
+      <div id="progressBar" class="h-full bg-yellow-400 transition-all duration-500" style="width: 0%;"></div>
+    </div>
+
+    <!-- Nivel -->
+    <div class="mb-4">
+      <label for="difficulty" class="block mb-1">Nivel de dificultad:</label>
+      <select id="difficulty" class="text-black px-3 py-2 rounded-lg">
+        <option value="easy">Fácil (1-5)</option>
+        <option value="medium">Medio (6-9)</option>
+        <option value="hard">Difícil (10-12)</option>
+      </select>
+    </div>
+
+    <!-- Pregunta -->
+    <div id="question" class="text-lg mb-4">¿Cuánto es 3 × 4?</div>
+
+    <!-- Entrada y botón -->
+    <div class="flex flex-col md:flex-row items-center justify-center gap-4 mb-6">
+      <input
+        id="inputAnswer"
+        type="number"
+        placeholder="Tu respuesta"
+        class="px-4 py-2 rounded-lg text-black w-32 text-center"
+      />
+      <button
+        onclick="checkAnswer()"
+        class="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-6 rounded-lg animate__animated animate__pulse animate__infinite"
+      >
+        Responder
+      </button>
+    </div>
+
+    <!-- Mensaje -->
+    <div id="message" class="text-md min-h-[40px]"></div>
+
+    <!-- Pista de Mario -->
+    <div class="mt-8 relative h-20 w-full bg-green-600 rounded-full overflow-hidden border-4 border-white">
+      <img
+        src="https://i.imgur.com/8pOAjQT.png"
+        alt="Mario corriendo"
+        id="mario"
+        class="mario absolute bottom-0 left-0"
+      />
+      <img
+        src="https://i.imgur.com/k1nZqGp.png"
+        alt="Meta"
+        class="flag"
+      />
+    </div>
+
+    <!-- Celebración -->
+    <div id="celebration" class="hidden mt-6 text-2xl font-bold text-yellow-300 animate__animated animate__tada">
+      ¡Felicidades! 🏊 Mario llegó a la meta 🎉
+    </div>
+  </div>
+
+  <!-- Sonidos -->
+  <audio id="successSound" src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-retro-changing-tab-206.wav"></audio>
+  <audio id="errorSound" src="https://assets.mixkit.co/sfx/preview/mixkit-wrong-answer-fail-notification-946.wav"></audio>
+  <audio id="stepSound" src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.wav"></audio>
+  <audio id="winSound" src="https://assets.mixkit.co/sfx/preview/mixkit-game-level-completed-2059.wav"></audio>
+
+  <script>
+    const input = document.getElementById("inputAnswer");
+    const message = document.getElementById("message");
+    const mario = document.getElementById("mario");
+    const difficulty = document.getElementById("difficulty");
+    const celebration = document.getElementById("celebration");
+    const progressBar = document.getElementById("progressBar");
+    const scoreDisplay = document.getElementById("score");
+
+    const soundSuccess = document.getElementById("successSound");
+    const soundError = document.getElementById("errorSound");
+    const soundStep = document.getElementById("stepSound");
+    const soundWin = document.getElementById("winSound");
+
+    const ideas = [
+      "¡Eres un crack! Mario recogió otra moneda.",
+      "¡Wow! Sigue así y llegarás al castillo.",
+      "¡Estás desbloqueando poderes secretos!",
+      "¡Boom! Acertaste, Mario está feliz.",
+      "¡Increíble velocidad mental!",
+      "¡Superestrella desbloqueada!",
+      "¡Mario grita 'Yippee!' gracias a ti.",
+      "¡Otro salto más hacia la victoria!",
+      "¡Multiplicación dominada, campeón!",
+      "¡Mario va en primer lugar!"
+    ];
+
+    let currentQuestion = {};
+    let marioPos = 0;
+    let score = 0;
+    const goal = 400;
+
+    function updateProgressBar() {
+      const percent = Math.min((marioPos / goal) * 100, 100);
+      progressBar.style.width = `${percent}%`;
+    }
+
+    function generateQuestion() {
+      if (marioPos >= goal) return;
+
+      let min, max;
+      switch (difficulty.value) {
+        case "easy": min = 1; max = 5; break;
+        case "medium": min = 6; max = 9; break;
+        case "hard": min = 10; max = 12; break;
+      }
+      const a = Math.floor(Math.random() * (max - min + 1)) + min;
+      const b = Math.floor(Math.random() * (max - min + 1)) + min;
+      currentQuestion = { a, b };
+      document.getElementById("question").textContent = `¿Cuánto es ${a} × ${b}?`;
+    }
+
+    function checkAnswer() {
+      if (marioPos >= goal) return;
+
+      const userAnswer = parseInt(input.value);
+
+      if (userAnswer === currentQuestion.a * currentQuestion.b) {
+        const idea = ideas[Math.floor(Math.random() * ideas.length)];
+        message.innerHTML = `<span class="text-green-300 animate__animated animate__fadeIn">${idea}</span>`;
+        marioPos += 40;
+        mario.style.left = `${marioPos}px`;
+        score += 10;
+        scoreDisplay.textContent = score;
+        updateProgressBar();
+        soundSuccess.play();
+        soundStep.play();
+
+        if (marioPos >= goal) {
+          celebration.classList.remove("hidden");
+          soundWin.play();
+        }
+      } else {
+        message.innerHTML = `<span class="text-red-300 animate__animated animate__shakeX">¡Oops! Intenta de nuevo.</span>`;
+        soundError.play();
+      }
+
+      input.value = "";
+      generateQuestion();
+    }
+
+    generateQuestion();
+    updateProgressBar();
+  </script>
+</body>
+</html>
